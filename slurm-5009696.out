@@ -1,0 +1,32 @@
+Starting job 5009696 on c52-5 on fram at Tue Feb 28 10:12:07 CET 2023
+
+srun: error: c52-5: tasks 17,19: Exited with exit code 1
+srun: launch/slurm: _step_signal: Terminating StepId=5009696.0
+srun: error: c52-5: tasks 0-8,10-12,14,16,18,20-23: Exited with exit code 143
+srun: error: c52-5: tasks 9,15: Aborted (core dumped)
+srun: error: c52-5: task 13: Killed
+srun: Force Terminated StepId=5009696.0
+
+Job 5009696 consumed 1.6 billing hours from project nn8008k.
+
+Submitted 2023-02-28T10:11:56; waited 11.0 seconds in the queue after becoming eligible to run.
+
+Requested wallclock time: 1.8 days
+Elapsed wallclock time:   3.0 minutes
+
+Task and CPU statistics:
+ID             CPUs  Tasks  CPU util                Start  Elapsed  Exit status
+5009696          32            0.0 %  2023-02-28T10:12:07  183.0 s  0
+5009696.batch    32      1     0.0 %  2023-02-28T10:12:07  183.0 s  0
+5009696.julia    32     24    49.4 %  2023-02-28T10:12:08  182.0 s  Signal 6
+
+Used CPU time:   47.9 CPU minutes
+Unused CPU time: 49.7 CPU minutes
+
+Memory statistics, in GiB:
+ID              Alloc   Usage
+5009696          59.0        
+5009696.batch    59.0     0.0
+5009696.julia    59.0    23.6
+
+Job 5009696 completed at Tue Feb 28 10:15:11 CET 2023

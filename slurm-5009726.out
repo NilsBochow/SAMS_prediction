@@ -1,0 +1,28 @@
+Starting job 5009726 on c14-7 on fram at Tue Feb 28 10:41:12 CET 2023
+
+srun: Job step aborted: Waiting up to 32 seconds for job step to finish.
+slurmstepd: error: *** JOB 5009726 ON c14-7 CANCELLED AT 2023-02-28T10:45:48 ***
+
+Job 5009726 consumed 2.5 billing hours from project nn8008k.
+
+Submitted 2023-02-28T10:41:03; waited 9.0 seconds in the queue after becoming eligible to run.
+
+Requested wallclock time: 1.8 days
+Elapsed wallclock time:   4.6 minutes
+
+Task and CPU statistics:
+ID             CPUs  Tasks  CPU util                Start  Elapsed  Exit status
+5009726          32            0.0 %  2023-02-28T10:41:12  276.0 s  0
+5009726.batch    32      1     0.0 %  2023-02-28T10:41:12  276.0 s  Signal 15
+5009726.julia    32      2    10.5 %  2023-02-28T10:41:13  279.0 s  143 (command killed by signal 15)
+
+Used CPU time:   15.7 CPU minutes
+Unused CPU time: 2.2 CPU hours
+
+Memory statistics, in GiB:
+ID              Alloc   Usage
+5009726          59.0        
+5009726.batch    59.0     0.0
+5009726.julia    59.0     2.8
+
+Job 5009726 completed at Tue Feb 28 10:45:52 CET 2023

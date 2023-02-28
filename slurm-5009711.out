@@ -1,0 +1,37 @@
+Starting job 5009711 on c54-4 on fram at Tue Feb 28 10:26:10 CET 2023
+
+srun: error: c54-4: tasks 7,17: Killed
+srun: launch/slurm: _step_signal: Terminating StepId=5009711.0
+srun: error: c54-4: task 13: Killed
+srun: error: c54-4: tasks 4-5,10,12,14,18-21,23: Exited with exit code 143
+srun: error: c54-4: task 15: Aborted (core dumped)
+srun: error: c54-4: task 6: Aborted (core dumped)
+srun: error: c54-4: task 0: Aborted (core dumped)
+srun: error: c54-4: task 16: Aborted (core dumped)
+srun: error: c54-4: tasks 2-3,8,11,22: Killed
+srun: error: c54-4: tasks 1,9: Killed
+srun: Force Terminated StepId=5009711.0
+
+Job 5009711 consumed 3.1 billing hours from project nn8008k.
+
+Submitted 2023-02-28T10:25:51; waited 19.0 seconds in the queue after becoming eligible to run.
+
+Requested wallclock time: 1.8 days
+Elapsed wallclock time:   5.8 minutes
+
+Task and CPU statistics:
+ID             CPUs  Tasks  CPU util                Start  Elapsed  Exit status
+5009711          32            0.0 %  2023-02-28T10:26:10  351.0 s  0
+5009711.batch    32      1     0.0 %  2023-02-28T10:26:10  351.0 s  0
+5009711.julia    32     24   163.8 %  2023-02-28T10:26:11  350.0 s  Signal 6
+
+Used CPU time:   5.1 CPU hours
+Unused CPU time: 0.0 CPU seconds
+
+Memory statistics, in GiB:
+ID              Alloc   Usage
+5009711          59.0        
+5009711.batch    59.0     0.0
+5009711.julia    59.0    68.5
+
+Job 5009711 completed at Tue Feb 28 10:32:03 CET 2023
