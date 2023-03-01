@@ -15,6 +15,21 @@ println("Number of Threads:", Threads.nthreads())
 a = 0.1
 Wᵢₙ = WeightedLayer(scaling = a)
 
+function save_ESN(esn, index)
+    reservoir_matrix = esn.reservoir_matrix
+    input_matrix = esn.input_matrix
+    states = esn.states
+    train_data = esn.train_data
+    jldsave("esn_states/esn_$index.jld"; reservoir_matrix, input_matrix, out_size, states)
+end
+
+function save_output_layer(output_layer, index)
+    training_method = output_layer.training_method
+    output_matrix = output_layer.output_matrix
+    out_size = output_layer.out_size
+    last_value = output_layer.last_value
+    jldsave("W_Matrix/W_$index.jld"; training_method, output_matrix, out_size, last_value)
+end
 
 function generate_esn(
     input_signal,
@@ -159,6 +174,9 @@ function f_optim(reservoir_sizes, spectral_radii, sparsities, input_scales, ridg
         prediction = esn(Predictive(val_x), Wₒᵤₜ)
         loss = sum(abs2, prediction .- Array(val_y'))
         #println("first: ", i, " ", Threads.threadid())
+        #jldsave("W_Matrix/W_$i.jld2"; Wₒᵤₜ)
+        #jldsave("esn_states/esn_$i.jld2"; esn)
+  
         if i <= 100
             loss_100[i] = loss
             println(loss)
@@ -167,6 +185,8 @@ function f_optim(reservoir_sizes, spectral_radii, sparsities, input_scales, ridg
             Threads.lock(sl) do
                 jldsave("W_Matrix/W_$i.jld2"; Wₒᵤₜ)
                 jldsave("esn_states/esn_$i.jld2"; esn)
+                #save_output_layer(Wₒᵤₜ, i)
+                #save_ESN(esn, i)
             end
         else 
             if any(loss_100 .> loss)
@@ -174,6 +194,8 @@ function f_optim(reservoir_sizes, spectral_radii, sparsities, input_scales, ridg
                 println("Found better loss: ", loss, " Index: ", i)
                     mxval, mxindx = findmax(loss_100)
                     loss_100[mxindx] = loss
+                    #save_output_layer(Wₒᵤₜ, mxindx)
+                    #save_ESN(esn, mxindx)
                     jldsave("W_Matrix/W_$mxindx.jld2"; Wₒᵤₜ)
                     jldsave("esn_states/esn_$mxindx.jld2"; esn)
                 end
