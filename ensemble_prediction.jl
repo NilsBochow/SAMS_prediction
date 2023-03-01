@@ -8,18 +8,20 @@ using CSV
 using DataFrames
 using NaNStatistics
 using Statistics
-using JLD
+using JLD2
+ENV["GKSwstype"]="nul"
 
 function generate_esn(
     input_signal,
-    W,
-    input_scale,
+    reservoir_size = 1000,
+    spectral_radius = 1.0,
+    sparsity = 0.1,
+    input_scale = 0.1,
 )
     Wᵢₙ = WeightedLayer(scaling = input_scale)
-    #W = RandSparseReservoir(reservoir_size, radius = spectral_radius, sparsity = sparsity)
+    W = RandSparseReservoir(reservoir_size, radius = spectral_radius, sparsity = sparsity)
     return ESN(input_signal, reservoir = W, input_layer = Wᵢₙ)
 end
-
 ridge_param = 0.0  # OLS
 training_method = StandardRidge(ridge_param)
 
@@ -142,19 +144,23 @@ train_x, val_x, test_x, train_y, val_y, test_y = split_data(mean_precipitation, 
 function ensemble_prediction()
     println(size(test_x))
     y_train = Array(train_y')
-    prediction_test = zeros(99, size(test_x)[1])
-    for i=99
-        W = load("W_Matrix/W_$i.jld")
-        esn = generate_esn(train_x, W, input_scales)
-        Wₒᵤₜ = train_esn!(esn, y_train, ridge_values)
+    prediction_test = zeros(100, size(test_x)[2])
+    for i = 1:100
+        esn = jldopen("esn_states/esn_$i.jld2")["esn"]
+        
+        Wₒᵤₜ =jldopen("W_Matrix/W_$i.jld2")["Wₒᵤₜ"]
+        #print(Wₒᵤₜ)
         prediction_test[i, :] = esn(Predictive(test_x), Wₒᵤₜ)
     end
-    prediction_mean = mean(prediction_test, 1)
-    label = ["actual" "predicted"]
+    prediction_mean = mean(prediction_test, dims = 1)[1,:]
+    #println(prediction_mean)
+    #label = ["actual" "predicted"]
     
-    
-    p1 = plot(size(Array(test_y)), Array(test_y), label = label, ylabel = "onset")
-    plot!(size(Array(test_y)), prediction_mean, dpi = 600)
+    println(size(test_y), size(prediction_mean[1]), size(prediction_mean))
+
+    plot(test_y, ylabel = "onset")
+    #range(1, size(preiction_mean[1,:])[1])
+    plot!(prediction_mean, dpi = 600)
     savefig("plots/mean_prediction.png")
 
 end
