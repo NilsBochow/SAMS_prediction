@@ -8,8 +8,10 @@ using CSV
 using DataFrames
 using NaNStatistics
 using Statistics
-using JLD
+using JLD2
+#using JLSO
 
+println("Number of Threads:", Threads.nthreads())
 a = 0.1
 Wᵢₙ = WeightedLayer(scaling = a)
 
@@ -23,7 +25,7 @@ function generate_esn(
 )
     Wᵢₙ = WeightedLayer(scaling = input_scale)
     W = RandSparseReservoir(reservoir_size, radius = spectral_radius, sparsity = sparsity)
-    return ESN(input_signal, reservoir = W, input_layer = Wᵢₙ), W
+    return ESN(input_signal, reservoir = W, input_layer = Wᵢₙ)
 end
 
 ridge_param = 0.0  # OLS
@@ -109,7 +111,7 @@ end
 
 
 function split_data(meanPrecipitationDaily, cosine_signal, proximityDaily, window) 
-    print(size(meanPrecipitationDaily), size(cosine_signal[window+1:end-1]))
+    #print(size(meanPrecipitationDaily), size(cosine_signal[window+1:end-1]))
     data_x = hcat(meanPrecipitationDaily, cosine_signal[window+1:end-1])'
     data_y = proximityDaily[window+1:end]
     test_size = 15*365+4
@@ -149,32 +151,43 @@ function f_optim(reservoir_sizes, spectral_radii, sparsities, input_scales, ridg
     x_train = train_x
     y_train = Array(train_y')
     loss_100 = zeros(100)
-    filelock = ReentrantLock()
+    sl = ReentrantLock()
     Threads.@threads for i in 1:100000
         # Generate and train an ESN
-        esn, W = generate_esn(x_train, reservoir_sizes, spectral_radii, sparsities, input_scales)
+        esn = generate_esn(x_train, reservoir_sizes, spectral_radii, sparsities, input_scales)
         Wₒᵤₜ = train_esn!(esn, y_train, ridge_values)
         prediction = esn(Predictive(val_x), Wₒᵤₜ)
         loss = sum(abs2, prediction .- Array(val_y'))
-        println(i)
-        if i < 100
+        #println("first: ", i, " ", Threads.threadid())
+        if i <= 100
             loss_100[i] = loss
-            Threads.lock(u) do
-                save("W_Matrix/W_$i.jld", "W", W)
+            #lock(sl)
+            #println(i, " ", Threads.threadid())
+            Threads.lock(sl) do
+                jldsave("W_Matrix/W_$i.jld2"; Wₒᵤₜ)
+                jldsave("esn_states/esn_$i.jld2"; esn)
             end
+
+            #jldopen("esn_states/esn_$i.jld2")
+            #exit()
+            #unlock(sl)
         else 
             if any(loss_100 .> loss)
-                mxval, mxindx = findmax(loss_100)
-                Threads.lock(u) do
-                    save("W_Matrix/W_$mxindx.jld", "W", W)
+                #lock(sl)
+                Threads.lock(sl) do
+                    mxval, mxindx = findmax(loss_100)
+                    jldsave("W_Matrix/W_$mxindx.jld2"; Wₒᵤₜ)
+                    jldsave("esn_states/esn_$mxindx.jld2"; esn)
                 end
+                #JLSO.save("esn_states/esn_$mxindx.jlso", esn)
+                #unlock(sl)
             end
         end
     end
     
     # Mean loss
     loss = mean(loss_100)
-    println(loss)
+    #println(loss)
 
 end
 
