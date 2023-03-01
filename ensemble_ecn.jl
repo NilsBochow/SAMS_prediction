@@ -161,26 +161,22 @@ function f_optim(reservoir_sizes, spectral_radii, sparsities, input_scales, ridg
         #println("first: ", i, " ", Threads.threadid())
         if i <= 100
             loss_100[i] = loss
+            println(loss)
             #lock(sl)
             #println(i, " ", Threads.threadid())
             Threads.lock(sl) do
                 jldsave("W_Matrix/W_$i.jld2"; Wₒᵤₜ)
                 jldsave("esn_states/esn_$i.jld2"; esn)
             end
-
-            #jldopen("esn_states/esn_$i.jld2")
-            #exit()
-            #unlock(sl)
         else 
             if any(loss_100 .> loss)
-                #lock(sl)
                 Threads.lock(sl) do
+                println("Found better loss: ", loss, " Index: ", i)
                     mxval, mxindx = findmax(loss_100)
+                    loss_100[mxindx] = loss
                     jldsave("W_Matrix/W_$mxindx.jld2"; Wₒᵤₜ)
                     jldsave("esn_states/esn_$mxindx.jld2"; esn)
                 end
-                #JLSO.save("esn_states/esn_$mxindx.jlso", esn)
-                #unlock(sl)
             end
         end
     end
