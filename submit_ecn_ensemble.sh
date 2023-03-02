@@ -17,6 +17,6 @@ module load Julia/1.7.1-linux-x86_64
 
 
 
-srun --account=nn8008k --time=00:30:00 julia ensemble_ecn.jl &> ecn.out & 
+srun --account=nn8008k julia ensemble_ecn.jl &> ecn.out & 
 
 wait
