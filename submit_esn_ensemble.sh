@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --account=nn8008k  # Substitute with your project name
-#SBATCH --job-name=ecn_ensemble
+#SBATCH --job-name=esn_ensemble
 ##SBATCH --qos=devel
 
 #SBATCH --time=1-20:00:00
@@ -17,6 +17,6 @@ module load Julia/1.7.1-linux-x86_64
 
 
 
-srun --account=nn8008k julia ensemble_ecn.jl &> ecn.out & 
+srun --account=nn8008k julia ensemble_esn.jl &> esn.out & 
 
 wait
