@@ -1,6 +1,3 @@
-#using Pkg
-#Pkg.activate(".")
-#Pkg.instantiate()
 using DifferentialEquations  # For generating synthetic training data
 using DynamicalSystems       # For calculating Lyapunov exponents (a great package with much more to it than this)
 using ReservoirComputing     # Julia implementation of reservoir computers
@@ -11,7 +8,6 @@ using DataFrames
 using NaNStatistics
 using Statistics
 using Hyperopt
-
 
 a = 0.1
 Wᵢₙ = WeightedLayer(scaling = a)
@@ -52,18 +48,6 @@ Given an Echo State Network, train it on the target sequence y_target and return
 function train_esn!(esn, y_target, ridge_param)
     training_method = StandardRidge(ridge_param)
     return train(esn, y_target, training_method)
-end
-
-
-"""
-Hyperparameters for an Echo State Network.
-"""
-struct ESNHyperparameters
-    reservoir_size
-    spectral_radius
-    sparsity
-    input_scale
-    ridge_param
 end
 
 
@@ -146,94 +130,16 @@ function split_data(meanPrecipitationDaily, cosine_signal, proximityDaily, windo
 end
 
 
-param_grid = ESNHyperparameters[]  # Empty list of objects of type ESNHyperparameters
-
-reservoir_sizes = [256, 512, 1024]
-spectral_radii = [0.8, 1.0, 1.2]
-sparsities = [0.03, 0.05]
-input_scales = [0.1]
-ridge_values = [0.0,10^(-10),10^(-8)]  # No noise so OLS is fine
-
-# Take the Cartesian product of the possible hyperparameter values
-for params in Iterators.product(reservoir_sizes, spectral_radii, sparsities, input_scales, ridge_values)
-    push!(param_grid, ESNHyperparameters(params...))
-end
-
-println("$(length(param_grid)) hyperparameter combinations.")
-
-
-"""
-    cross_validate_esn(train_data, val_data, param_grid)
-
-Do a grid search on the given param_grid to find the optimal hyperparameters.
-"""
-function cross_validate_esn(train_x, val_x, train_y, val_y, param_grid)
-    best_loss = Inf
-    best_params = nothing
-
-    # We want
-    x_train = train_x
-    y_train = Array(train_y')
-        
-    for hyperparams in param_grid        
-        # Unpack the hyperparameter struct
-        (;reservoir_size, spectral_radius, sparsity, input_scale, ridge_param) = hyperparams
-
-        loss_i = zeros(10)
-        for i in 1:10
-            # Generate and train an ESN
-            esn = generate_esn(x_train, reservoir_size, spectral_radius, sparsity, input_scale)
-            Wₒᵤₜ = train_esn!(esn, y_train, ridge_param)
-
-            # Evaluate the loss on the validation set
-            steps_to_predict = size(val_y,1)
-            #prediction = esn(Generative(steps_to_predict), Wₒᵤₜ)
-            prediction = esn(Predictive(val_x), Wₒᵤₜ)
-            loss_i[i] = sum(abs2, prediction .- Array(val_y'))
-        end
-        
-        # Mean loss
-        loss = mean(loss_i)
-        
-        println("Hyperparameters: $(hyperparams)")
-        println("Validation loss = ", @sprintf "%.1e" loss)
-        
-        
-        # Keep track of the best hyperparameter values
-        if loss < best_loss
-            best_loss = loss
-            best_params = hyperparams
-        end
-    end
-    
-    println("Optimal hyperparameters: $(best_params)")
-    println("Validation loss = ", @sprintf "%.1e" best_loss)
-    
-    # Retrain the model using the optimal hyperparameters on both the training and validation data
-    # This is necessary because we don't want errors accumulated during validation to affect the test error
-    (; reservoir_size, spectral_radius, sparsity, input_scale, ridge_param) = best_params
-    x = hcat(x_train, val_x) # Check if doesn't work, do array and ' stuff
-    y = hcat(y_train, Array(val_y'))
-    esn = generate_esn(x, reservoir_size, spectral_radius, sparsity, input_scale)
-    Wₒᵤₜ = train_esn!(esn, y, ridge_param)
-    
-    return esn, Wₒᵤₜ
-end
-
 proximity_daily =  proximity_function()
 mean_precipitation = precipitation_processing()
 cosine_signal = yearly_cycle(proximity_daily)
 train_x, val_x, test_x, train_y, val_y, test_y = split_data(mean_precipitation, cosine_signal, proximity_daily, 10)
 
+"""
+f_optim(reservoir_sizes, spectral_radii, sparsities, input_scales, ridge_values)
 
-
-#esn = generate_esn(x_train, reservoir_size, spectral_radius, sparsity, input_scale)
-#Wₒᵤₜ = train_esn!(esn, y_train, ridge_param)
-
-#prediction = esn(Predictive(val_x), Wₒᵤₜ)
-
-
-#f(x, reservoir_sizes, spectral_radii, sparsities, input_scales, ridge_values) =  sum(abs2, x .- Array(val_y'))
+Function to optimize. Calculates and returns the mean loss of 10 ESNs with the same hyperparameter values on the validation set.
+"""
 function f_optim(reservoir_sizes, spectral_radii, sparsities, input_scales, ridge_values)
     x_train = train_x
     y_train = Array(train_y')
@@ -245,7 +151,6 @@ function f_optim(reservoir_sizes, spectral_radii, sparsities, input_scales, ridg
 
         # Evaluate the loss on the validation set
         steps_to_predict = size(val_y,1)
-        #prediction = esn(Generative(steps_to_predict), Wₒᵤₜ)
         prediction = esn(Predictive(val_x), Wₒᵤₜ)
         loss_i[i] = sum(abs2, prediction .- Array(val_y'))
     end
@@ -254,7 +159,9 @@ function f_optim(reservoir_sizes, spectral_radii, sparsities, input_scales, ridg
     loss = mean(loss_i)
 end
 
-
+"""
+Optimizing the Hyperparameters using the Hyperopt.jl package.
+"""
 ho = @hyperopt for i=50,
         sampler = RandomSampler(), # This is default if none provided
         reservoir_sizes = [256, 512, 1024],
@@ -264,13 +171,9 @@ ho = @hyperopt for i=50,
         input_scales = [0.1]
 
     print(i, "\t", reservoir_sizes, "\t", spectral_radii, "\t", sparsities, "\t", input_scales, "\t", ridge_values, "   \t")
-    #esn = generate_esn(train_x, reservoir_sizes, spectral_radii, sparsities, input_scales)
-    #Wₒᵤₜ = train_esn!(esn, Array(train_y'), ridge_values)
 
     @show f_optim(reservoir_sizes, spectral_radii, sparsities, input_scales, ridge_values)
 end
 best_params, min_f = ho.minimizer, ho.minimum
 print(best_params, min_f)
 
-
-#@time esn, Wₒᵤₜ = cross_validate_esn(train_x, val_x, train_y, val_y, param_grid);
