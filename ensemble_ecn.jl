@@ -15,21 +15,6 @@ println("Number of Threads:", Threads.nthreads())
 a = 0.1
 Wᵢₙ = WeightedLayer(scaling = a)
 
-function save_ESN(esn, index)
-    reservoir_matrix = esn.reservoir_matrix
-    input_matrix = esn.input_matrix
-    states = esn.states
-    train_data = esn.train_data
-    jldsave("esn_states/esn_$index.jld"; reservoir_matrix, input_matrix, out_size, states)
-end
-
-function save_output_layer(output_layer, index)
-    training_method = output_layer.training_method
-    output_matrix = output_layer.output_matrix
-    out_size = output_layer.out_size
-    last_value = output_layer.last_value
-    jldsave("W_Matrix/W_$index.jld"; training_method, output_matrix, out_size, last_value)
-end
 
 function generate_esn(
     input_signal,
@@ -162,31 +147,33 @@ cosine_signal = yearly_cycle(proximity_daily)
 train_x, val_x, test_x, train_y, val_y, test_y = split_data(mean_precipitation, cosine_signal, proximity_daily, 10)
 
 
-function f_optim(reservoir_sizes, spectral_radii, sparsities, input_scales, ridge_values)
+function test_ensemble()
+    acc = Atomic{Int64}(0)
+
+end
+
+function ensemble_simulation(reservoir_sizes, spectral_radii, sparsities, input_scales, ridge_values)
     x_train = train_x
     y_train = Array(train_y')
     loss_100 = zeros(100)
+    acc = Atomic{Int64}(0)
+    number_simulations= 100000
     sl = ReentrantLock()
-    Threads.@threads for i in 1:100000
+    Threads.@threads for i in 1:number_simulations
+        # Test if actually 100 000 simulations
+        atomic_add!(acc, 1)
         # Generate and train an ESN
         esn = generate_esn(x_train, reservoir_sizes, spectral_radii, sparsities, input_scales)
         Wₒᵤₜ = train_esn!(esn, y_train, ridge_values)
         prediction = esn(Predictive(val_x), Wₒᵤₜ)
         loss = sum(abs2, prediction .- Array(val_y'))
-        #println("first: ", i, " ", Threads.threadid())
-        #jldsave("W_Matrix/W_$i.jld2"; Wₒᵤₜ)
-        #jldsave("esn_states/esn_$i.jld2"; esn)
-  
+        
         if i <= 100
             loss_100[i] = loss
             println(loss)
-            #lock(sl)
-            #println(i, " ", Threads.threadid())
             Threads.lock(sl) do
                 jldsave("W_Matrix/W_$i.jld2"; Wₒᵤₜ)
                 jldsave("esn_states/esn_$i.jld2"; esn)
-                #save_output_layer(Wₒᵤₜ, i)
-                #save_ESN(esn, i)
             end
         else 
             if any(loss_100 .> loss)
@@ -194,8 +181,6 @@ function f_optim(reservoir_sizes, spectral_radii, sparsities, input_scales, ridg
                 println("Found better loss: ", loss, " Index: ", i)
                     mxval, mxindx = findmax(loss_100)
                     loss_100[mxindx] = loss
-                    #save_output_layer(Wₒᵤₜ, mxindx)
-                    #save_ESN(esn, mxindx)
                     jldsave("W_Matrix/W_$mxindx.jld2"; Wₒᵤₜ)
                     jldsave("esn_states/esn_$mxindx.jld2"; esn)
                 end
@@ -205,9 +190,11 @@ function f_optim(reservoir_sizes, spectral_radii, sparsities, input_scales, ridg
     
     # Mean loss
     loss = mean(loss_100)
-    #println(loss)
+    println("Final mean loss: ", loss)
+    println("Number of simulations: ", number_simulations)
+    println("Actual number of simulations: ", acc[])
 
 end
 
 
-f_optim(reservoir_sizes, spectral_radii, sparsities, input_scales, ridge_values)
+ensemble_simulation(reservoir_sizes, spectral_radii, sparsities, input_scales, ridge_values)
