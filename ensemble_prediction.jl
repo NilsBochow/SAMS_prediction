@@ -1,5 +1,4 @@
 using MKL
-using DifferentialEquations  # For generating synthetic training data
 using DynamicalSystems       # For calculating Lyapunov exponents (a great package with much more to it than this)
 using ReservoirComputing     # Julia implementation of reservoir computers
 using Printf                 # Nice C-style string formatting
@@ -9,6 +8,8 @@ using DataFrames
 using NaNStatistics
 using Statistics
 using JLD2
+using StatsBase
+
 ENV["GKSwstype"]="nul"
 
 function generate_esn(
@@ -142,14 +143,10 @@ train_x, val_x, test_x, train_y, val_y, test_y = split_data(mean_precipitation, 
 
 
 function ensemble_prediction()
-    println(size(test_x))
-    y_train = Array(train_y')
     prediction_test = zeros(100, size(test_x)[2])
     for i = 1:100
         esn = jldopen("esn_states/esn_$i.jld2")["esn"]
-        
         Wₒᵤₜ =jldopen("W_Matrix/W_$i.jld2")["Wₒᵤₜ"]
-        #print(Wₒᵤₜ)
         prediction_test[i, :] = esn(Predictive(test_x), Wₒᵤₜ)
     end
     prediction_mean = mean(prediction_test, dims = 1)[1,:]
@@ -163,7 +160,34 @@ function ensemble_prediction()
     plot!(prediction_mean, dpi = 600)
     savefig("plots/mean_prediction.png")
 
+    return prediction_mean
+
 end
 
+function linear_regr_pred(y_array, start_date, end_date)
+    filename = "onset_retreat_length/ws_onset.csv"
+    ws_onset = Matrix(CSV.read(filename,DataFrame, header = false))[:,1]
 
-ensemble_prediction()
+    x_regression = start_date:end_date
+    X = hcat(ones(end_date - start_date + 1), x_regression)
+    prediction = zeros(20)
+    regr_1 =  zeros(20)
+    regr_2 = zeros(20)
+    for i=1:20
+        y_regression = y_array[start_date+(i*365):end_date+(i*365)]
+        regr_1[i], regr_2[i] =  X\y_regression
+        prediction[i] = findall(x -> x >= 1, (regr_1[i] .+ regr_2[i] .* range(start_date, 365)))[1] + start_date
+    end
+    println("rmse: ", rmsd(prediction, ws_onset[end-15:end]; normalize=false))
+    
+    
+    label = "predicted"
+    x_label = range(2001, 2020)
+    plot(x_label, prediction, xlabel = "Year AD", label = label, ylabel = "Wet Season Onset")
+    plot!(x_label, ws_onset[end-15:end], ribbon=(5,5), label = "actual", show = true)
+    savefig("plots/test_set_prediction.png")
+
+end
+
+prediction_mean = ensemble_prediction()
+linear_regr_pred(prediction_mean, 110, 210)
