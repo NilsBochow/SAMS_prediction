@@ -178,13 +178,14 @@ function linear_regr_pred(y_array, start_date, end_date)
         regr_1[i], regr_2[i] =  X\y_regression
         prediction[i] = findall(x -> x >= 1, (regr_1[i] .+ regr_2[i] .* range(start_date, 365)))[1] + start_date
     end
-    println("rmse: ", rmsd(prediction, ws_onset[end-15:end]; normalize=false))
+    println(size(prediction), size(ws_onset[end-19:end]))
+    println("rmse: ", rmsd(prediction, ws_onset[end-19:end]; normalize=false))
     
     
     label = "predicted"
     x_label = range(2001, 2020)
     plot(x_label, prediction, xlabel = "Year AD", label = label, ylabel = "Wet Season Onset")
-    plot!(x_label, ws_onset[end-15:end], ribbon=(5,5), label = "actual", show = true)
+    plot!(x_label, ws_onset[end-19:end], ribbon=(5,5), label = "actual", show = true)
     savefig("plots/test_set_prediction.png")
 
 end
