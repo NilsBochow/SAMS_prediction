@@ -3,3 +3,4 @@ slurm*
 *.ipynb
 *.jld2
 *.jld
+*.nc
