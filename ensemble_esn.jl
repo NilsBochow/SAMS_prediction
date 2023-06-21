@@ -10,6 +10,7 @@ using NaNStatistics
 using Statistics
 using Base.Threads
 using JLD2
+using NCDatasets
 #using JLSO
 
 println("Number of Threads:", Threads.nthreads())
@@ -55,6 +56,58 @@ struct ESNHyperparameters
     ridge_param
 end
 
+const DATA_DIRECTORY = "/cluster/projects/nn8008k/Nils/Monsoon_prediction/tropical_atlantic/"
+
+"""
+    load_yearly_sst(year::Int)
+
+Load the sea surface temperature (SST) data for a specific year from a netCDF file.
+"""
+function load_yearly_sst(year::Int)
+    filename = joinpath(DATA_DIRECTORY, "$(year)_NTA.nc")
+    ds = NCDatasets.Dataset(filename, "r")
+    sst = ds["sst"][1, 1, 2:end]
+    return sst
+end
+
+"""
+    load_all_sst(start_year::Int, end_year::Int)
+
+Load the SST data for all years in the range from start_year to end_year, inclusive.
+The data for each year is concatenated into a single array.
+"""
+function load_all_sst(start_year::Int, end_year::Int)
+    sst_data = [load_yearly_sst(year) for year in start_year:end_year]
+    return vcat(sst_data...)
+end
+
+"""
+    moving_average(array::Vector{Float64}, window::Int)
+
+Compute the moving average of the input array with a specified window size.
+The average is computed for each subarray of size `window` in the input array,
+moving from left to right by one position at each step.
+"""
+function moving_average(array::Vector{T}, window::Int) where {T <: AbstractFloat}
+    return [sum(array[i:i+window-1])/window for i in 1:length(array)-window]
+end
+
+
+"""
+    load_sst()
+
+Load SST data for all years from 1979 to 2019, remove any missing values,
+and compute the moving average with a window size of 10.
+"""
+function load_sst()
+    nta_daily = load_all_sst(1979, 2019)
+    nta_daily = collect(skipmissing(nta_daily))
+    window = 10
+    return moving_average(nta_daily, window)
+end
+
+
+
 function precipitation_processing()
     precipitationDaily = zeros(0)
     for year in 1979:2019
@@ -63,13 +116,33 @@ function precipitation_processing()
         precipitationDaily = vcat(precipitationDaily,yearData)
     end
 
+    window = 10
+    return moving_average(precipitationDaily,window)
+end
+"""
+function load_sst()
+    nta_daily = zeros(0)
+    for year in 1979:2019
+        filename = "/cluster/projects/nn8008k/Nils/Monsoon_prediction/tropical_atlantic/" * string(year) * "_NTA.nc"
+        ds = NCDatasets.Dataset(filename,"r") 
+        nta = ds["sst"][1, 1, 2:end]
+        nta_daily = vcat(nta_daily,nta)
+
+    end
+
     function leftMean(array::Vector{Float64},window::Int64)
         return [sum(array[x:x+window-1])/window for x in 1:size(array)[1]-window]
     end
+    nta_daily = collect(skipmissing(nta_daily))
 
     window = 10
-    return leftMean(precipitationDaily,window)
+    return leftMean(nta_daily,window)
 end
+"""
+
+subdata = load_sst()
+println(size(subdata))
+exit()
 
 function proximity_function() 
     proximityDaily = zeros(0)
