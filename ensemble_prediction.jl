@@ -9,6 +9,7 @@ using NaNStatistics
 using Statistics
 using JLD2
 using StatsBase
+using NCDatasets
 
 ENV["GKSwstype"]="nul"
 
@@ -49,6 +50,58 @@ struct ESNHyperparameters
     ridge_param
 end
 
+const DATA_DIRECTORY = "/cluster/projects/nn8008k/Nils/Monsoon_prediction/tropical_atlantic/"
+
+"""
+    load_yearly_sst(year::Int)
+
+Load the sea surface temperature (SST) data for a specific year from a netCDF file.
+"""
+function load_yearly_sst(year::Int)
+    filename = joinpath(DATA_DIRECTORY, "$(year)_NTA.nc")
+    ds = NCDatasets.Dataset(filename, "r")
+    sst = ds["sst"][1, 1, 2:end]
+    return sst
+end
+
+"""
+    load_all_sst(start_year::Int, end_year::Int)
+
+Load the SST data for all years in the range from start_year to end_year, inclusive.
+The data for each year is concatenated into a single array.
+"""
+function load_all_sst(start_year::Int, end_year::Int)
+    sst_data = [load_yearly_sst(year) for year in start_year:end_year]
+    return vcat(sst_data...)
+end
+
+"""
+    moving_average(array::Vector{Float64}, window::Int)
+
+Compute the moving average of the input array with a specified window size.
+The average is computed for each subarray of size `window` in the input array,
+moving from left to right by one position at each step.
+"""
+function moving_average(array::Vector{T}, window::Int) where {T <: AbstractFloat}
+    return [sum(array[i:i+window-1])/window for i in 1:length(array)-window]
+end
+
+
+"""
+    load_sst()
+
+Load SST data for all years from 1979 to 2019, remove any missing values,
+and compute the moving average with a window size of 10.
+"""
+function load_sst()
+    nta_daily = load_all_sst(1979, 2019)
+    nta_daily = collect(skipmissing(nta_daily))
+    window = 10
+    return moving_average(nta_daily, window) .- mean(nta_daily)
+end
+
+
+
 function precipitation_processing()
     precipitationDaily = zeros(0)
     for year in 1979:2019
@@ -57,12 +110,8 @@ function precipitation_processing()
         precipitationDaily = vcat(precipitationDaily,yearData)
     end
 
-    function leftMean(array::Vector{Float64},window::Int64)
-        return [sum(array[x:x+window-1])/window for x in 1:size(array)[1]-window]
-    end
-
     window = 10
-    return leftMean(precipitationDaily,window)
+    return moving_average(precipitationDaily,window)
 end
 
 function proximity_function() 
@@ -105,9 +154,9 @@ end
 
 
 
-function split_data(meanPrecipitationDaily, cosine_signal, proximityDaily, window) 
-    print(size(meanPrecipitationDaily), size(cosine_signal[window+1:end-1]))
-    data_x = hcat(meanPrecipitationDaily, cosine_signal[window+1:end-1])'
+function split_data(meanPrecipitationDaily, nta_daily, cosine_signal, proximityDaily, window) 
+    #print(size(meanPrecipitationDaily), size(cosine_signal[window+1:end-1]))
+    data_x = hcat(meanPrecipitationDaily, nta_daily, cosine_signal[window+1:end-1])'
     data_y = proximityDaily[window+1:end]
     test_size = 15*365+4
     val_size = 5*365+2
@@ -138,8 +187,11 @@ ridge_values = 10^(-8)  # No noise so OLS is fine
 
 proximity_daily =  proximity_function()
 mean_precipitation = precipitation_processing()
+
+nta_daily = load_sst()
+
 cosine_signal = yearly_cycle(proximity_daily)
-train_x, val_x, test_x, train_y, val_y, test_y = split_data(mean_precipitation, cosine_signal, proximity_daily, 10)
+train_x, val_x, test_x, train_y, val_y, test_y = split_data(mean_precipitation, nta_daily, cosine_signal, proximity_daily, 10)
 
 
 function ensemble_prediction()
@@ -191,4 +243,4 @@ function linear_regr_pred(y_array, start_date, end_date)
 end
 
 prediction_mean = ensemble_prediction()
-linear_regr_pred(prediction_mean, 110, 210)
+linear_regr_pred(prediction_mean, 100, 220)

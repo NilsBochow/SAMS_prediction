@@ -103,7 +103,7 @@ function load_sst()
     nta_daily = load_all_sst(1979, 2019)
     nta_daily = collect(skipmissing(nta_daily))
     window = 10
-    return moving_average(nta_daily, window)
+    return  moving_average(nta_daily, window) .- mean(nta_daily)
 end
 
 
@@ -140,9 +140,6 @@ function load_sst()
 end
 """
 
-subdata = load_sst()
-println(size(subdata))
-exit()
 
 function proximity_function() 
     proximityDaily = zeros(0)
@@ -184,9 +181,9 @@ end
 
 
 
-function split_data(meanPrecipitationDaily, cosine_signal, proximityDaily, window) 
+function split_data(meanPrecipitationDaily, nta_daily, cosine_signal, proximityDaily, window) 
     #print(size(meanPrecipitationDaily), size(cosine_signal[window+1:end-1]))
-    data_x = hcat(meanPrecipitationDaily, cosine_signal[window+1:end-1])'
+    data_x = hcat(meanPrecipitationDaily, nta_daily, cosine_signal[window+1:end-1])'
     data_y = proximityDaily[window+1:end]
     test_size = 15*365+4
     val_size = 5*365+2
@@ -217,9 +214,15 @@ ridge_values = 10^(-8)  # No noise so OLS is fine
 
 proximity_daily =  proximity_function()
 mean_precipitation = precipitation_processing()
-cosine_signal = yearly_cycle(proximity_daily)
-train_x, val_x, test_x, train_y, val_y, test_y = split_data(mean_precipitation, cosine_signal, proximity_daily, 10)
 
+nta_daily = load_sst()
+plot(nta_daily, ylabel = "onset")
+#range(1, size(preiction_mean[1,:])[1])
+
+savefig("plots/nta_detrended.png")
+
+cosine_signal = yearly_cycle(proximity_daily)
+train_x, val_x, test_x, train_y, val_y, test_y = split_data(mean_precipitation, nta_daily, cosine_signal, proximity_daily, 10)
 
 function test_ensemble()
     acc = Atomic{Int64}(0)
